@@ -11,7 +11,7 @@ import sys
 import os
 import time
 
-from PyQt5.QtWidgets import (QApplication, QWidget, QDialog, QMessageBox,
+from PyQt5.QtWidgets import (QApplication, QWidget, QDialog, QMessageBox, QErrorMessage,
                              QPushButton, QToolTip, QMainWindow)
 from PyQt5 import QtGui
 from PyQt5.QtCore import QCoreApplication
@@ -24,7 +24,17 @@ from PyQt5.uic import loadUi
 import configparser
 
 config_path = './template_config.ini'
-tmp_file = './tmp.png'
+tmp_file = './tmp'
+
+def now():
+    return str(time.time())
+
+
+
+def showErrorMsg(s):
+    '''show the error diglog.'''
+    error_msg = QErrorMessage.qtHandler()
+    error_msg.showMessage(s)
 
 
 class QiniuUploader():
@@ -36,12 +46,18 @@ class QiniuUploader():
             self.qiniu = qiniu.Auth(access_key, secret_key)
             print('init', access_key, secret_key)
         except Exception as e:
+            showErrorMsg("Access Key or Secret Key is error, please check setting.")
             print(e.args)
+            self.qiniu = None
 
     def update(self, access_key: str, secret_key: str, bucket_name: str):
-        print('update', access_key, secret_key, bucket_name)
-        self.qiniu = qiniu.Auth(access_key, secret_key)
-        self.bucket_name = bucket_name
+        try:
+            print('update', access_key, secret_key, bucket_name)
+            self.qiniu = qiniu.Auth(access_key, secret_key)
+            self.bucket_name = bucket_name
+        except Exception as e:
+            showErrorMsg("Access Key or Secret Key is error, please check setting.")
+            print(e.args)
 
     def put_file(self, file_path: str, test=False):
         print('put_file', file_path)
@@ -50,7 +66,7 @@ class QiniuUploader():
         key_path = key + '.png'
         if not test:
             token = self.qiniu.upload_token(self.bucket_name, key, 3600)
-            ret, _ = put_file(token, key, file_path)
+            ret, _ = put_file(token, key_path, file_path)
             assert ret['key'] == key
             assert ret['hash'] == etag(file_path)
         return key
@@ -99,6 +115,7 @@ class PicUploader(QWidget):
         self.setting.access_key.setText(self.cf.get('QINIU', 'access_key'))
         self.setting.secret_key.setText(self.cf.get('QINIU', 'secret_key'))
         self.setting.bucket_name.setText(self.cf.get('QINIU', 'bucket_name'))
+        self.setting.outside_catenary.setText(self.cf.get('QINIU', 'outside_catenary'))
         self.setting.markdown.setChecked(self.markdown)
         self.setting.auto_copy.setChecked(self.auto_copy)
         self.setting.auto_upload.setChecked(self.auto_upload)
@@ -113,11 +130,23 @@ class PicUploader(QWidget):
 
         self.show()
 
+
+    def save_config(self):
+        '''save the config to file'''
+        self.cf.set('QINIU', 'secret_key', self.setting.access_key.text())
+        self.cf.set('QINIU', 'secret_key', self.setting.secret_key.text())
+        self.cf.set('QINIU', 'bucket_name', self.setting.bucket_name.text())
+        self.cf.set('QINIU', 'outside_catenary', self.setting.outside_catenary.text())
+        self.cf.set('QINIU', 'markdown', str(self.markdown))
+        self.cf.set('QINIU', 'auto_copy', str(self.auto_copy))
+        self.cf.set('QINIU', 'auto_upload', str(self.auto_upload))
+        with open(config_path, 'w') as f:
+            self.cf.write(f)
+
     def setting_save(self):
         self.qiniu.update(self.setting.access_key.text(),
-                          self.setting.secret_key.text(),
-                          self.setting.bucket_name.text())
-
+                        self.setting.secret_key.text(),
+                        self.setting.bucket_name.text())
         self.markdown = self.setting.markdown.isChecked()
         # self.auto_upload = self.setting.auto_upload.isChecked()
         self.auto_copy = self.setting.auto_copy.isChecked()
@@ -129,16 +158,7 @@ class PicUploader(QWidget):
             self.clipboard.dataChanged.disconnect(self.getClipboard)
             self.auto_upload = False
 
-        # save the config to file
-        self.cf.set('QINIU', 'secret_key', self.setting.access_key.text())
-        self.cf.set('QINIU', 'secret_key', self.setting.secret_key.text())
-        self.cf.set('QINIU', 'bucket_name', self.setting.bucket_name.text())
-        self.cf.set('QINIU', 'markdown', str(self.markdown))
-        self.cf.set('QINIU', 'auto_copy', str(self.auto_copy))
-        self.cf.set('QINIU', 'auto_upload', str(self.auto_upload))
-        with open(config_path, 'w') as f:
-            self.cf.write(f)
-
+        self.save_config()
         print("setting save")
 
     def getClipboard(self):
@@ -147,12 +167,11 @@ class PicUploader(QWidget):
         if mimeData.hasImage():
             print('is image')
             image = self.clipboard.image()
-            image.save(tmp_file)
+            image.save(tmp_file + now() + ".png")
             try:
                 url = self.qiniu.put_file(tmp_file)
             except Exception as e:
-                self.ErrorDiglog(e.args)
-                print('return')
+                showErrorMsg("Upload Fail, please check setting.")
                 return
             os.remove(tmp_file)
             if self.markdown:
@@ -161,13 +180,9 @@ class PicUploader(QWidget):
                 self.buffer = "http://%s/%s" % (self.outside_catenary, url)
             if self.auto_copy:
                 self.clipboard.setText(self.buffer)
-
-    def ErrorDiglog(self, s: str):
-        '''show the error diglog.'''
-        error_msg = QMessageBox()
-        error_msg.setWindowTitle('Error')
-        error_msg.setText(s[0])
-        error_msg.exec()
+        elif mimeData.hasText():
+            print('is text', self.clipboard.text())
+            self.ErrorDiglog('test')
 
     def click_copy(self):
         print('copy')
