@@ -9,11 +9,24 @@ PicUploader could automatically upload images(from clipboard) and save Markdown 
 
 ## TODO
 
-- [ ] 设置界面加入`outside_catenary`.
+- [ * ] 设置界面加入`outside_catenary`.
 - [ ] 将主界面除去，直接放入到系统托盘中
 - [ ] 直接上传文件的功能
 - [ ] 其他的图床上传方式
 - [ ] 将图片贴在屏幕上（始终置顶）
+
+## 需要的依赖：
+
+- pyqt5
+- qiniu
+
+可使用`requirements.txt`文件来安装依赖：
+
+```bash
+pip install -r requirements.txt
+```
+
+**强烈建议使用`virtualenv`或类似工具安装依赖，因为PyQt5和PyQt4可能会有冲突。**
 
 ## Usage：
 
@@ -47,7 +60,7 @@ auto_upload = True
 
 然后是`Bucket Name`,即存储空间的名字
 
-还有一个外链的域名（Outside Catenary)由于时间原因没有在GUI中显示，需要在`config.ini`中修改,**注意**，只给出域名即可，不要在前面和后面加入`http`或`/`等。
+还有一个外链的域名（Outside Catenary)~~由于时间原因没有在GUI中显示，需要在`config.ini`中修改,**注意**，只给出域名即可，不要在前面和后面加入`http`或`/`等。~~
 
 例如我的为：
 

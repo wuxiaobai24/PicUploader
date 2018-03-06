@@ -105,3 +105,4 @@ ENV/
 .mypy_cache/
 config.ini
 .qiniu_pythonsdk_hostscache.json
+.vscode/launch.json
